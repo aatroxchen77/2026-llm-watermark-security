@@ -49,7 +49,7 @@ class WatermarkAttacker:
     def paraphrase(self, text):
         # T5-style paraphrase prompt
         input_text = "paraphrase: " + text + " </s>"
-        inputs = self.tokenizer.encode_plus(input_text, pad_to_max_length=True, return_tensors="pt")
+        inputs = self.tokenizer(input_text, padding=True, truncation=True, return_tensors="pt")
         
         input_ids = inputs["input_ids"].to(self.device)
         attention_mask = inputs["attention_mask"].to(self.device)
