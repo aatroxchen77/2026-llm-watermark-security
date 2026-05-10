@@ -19,13 +19,13 @@ def deep_analysis():
         for line in f:
             data.append(json.loads(line))
 
-    # Load a general tokenizer for frequency analysis (using OPT for consistency if possible)
-    # If internet is slow, this might take a second.
-    print("Loading tokenizer for frequency analysis...")
+    # Load a general tokenizer for frequency analysis (using local path for consistency)
+    MODEL_PATH = '/data1/cyt/models/facebook--opt-1.3b'
+    print(f"Loading tokenizer from {MODEL_PATH}...")
     try:
-        tokenizer = AutoTokenizer.from_pretrained('facebook/opt-1.3b')
-    except:
-        print("Fallback to simple split because of network...")
+        tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
+    except Exception as e:
+        print(f"Fallback to simple split due to error: {e}")
         tokenizer = None
 
     def get_distribution(texts):
