@@ -13,7 +13,7 @@ JUDGE_MODEL = os.path.join(MODEL_DIR, 'gpt2-large')
 # Params
 GAMMA = 0.25
 DELTA = 2.0
-DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
+DEVICE = 'cuda:1' if torch.cuda.is_available() else 'cpu'
 
 # Prompts
 PROMPTS = [
