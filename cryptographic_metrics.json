@@ -1,0 +1,27 @@
+{
+    "kl_divergence": 0.25079659429510914,
+    "statistical_distance": 0.28088888888888885,
+    "avg_z_retention_rate": 0.5264508975725682,
+    "top_vulnerable_tokens": [
+        {
+            "token": "\n",
+            "delta": 0.007703703703703706
+        },
+        {
+            "token": " in",
+            "delta": 0.005037037037037037
+        },
+        {
+            "token": " on",
+            "delta": 0.0038518518518518515
+        },
+        {
+            "token": "\ufffd",
+            "delta": 0.003555555555555556
+        },
+        {
+            "token": " The",
+            "delta": 0.0035555555555555553
+        }
+    ]
+}
