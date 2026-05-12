@@ -1,10 +1,11 @@
 """
-TVD Bootstrap CI 计算
-通过对文本样本进行 Bootstrap 重采样，估计 TVD 的 95% 置信区间。
+TVD Bootstrap CI — 复现 deep_analysis.py 方法论:
+使用 OPT-1.3B tokenizer + Laplace 平滑，对 10 对文本 Bootstrap 10000 次。
 """
 import json
 import numpy as np
 from collections import Counter
+from transformers import AutoTokenizer
 
 
 def load_data(file_path='experiment_results.jsonl'):
@@ -15,63 +16,60 @@ def load_data(file_path='experiment_results.jsonl'):
     return data
 
 
-def build_token_dist(texts):
-    """从文本列表构建 token 频率分布。"""
-    counter = Counter()
-    total = 0
-    for text in texts:
-        tokens = text.split()
-        counter.update(tokens)
-        total += len(tokens)
-    # 归一化为概率分布
-    dist = {}
-    for token, count in counter.items():
-        dist[token] = count / total
-    return dist, counter, total
+def compute_tvd(baseline_texts, watermarked_texts, tokenizer):
+    """复现 deep_analysis.py 的 TVD 计算 (Laplace 平滑)。"""
+    # 收集所有 token
+    def get_token_ids(texts):
+        ids = []
+        for text in texts:
+            ids.extend(tokenizer.encode(text))
+        return ids
+
+    b_ids = get_token_ids(baseline_texts)
+    w_ids = get_token_ids(watermarked_texts)
+
+    cnt_n = Counter(b_ids)
+    cnt_w = Counter(w_ids)
+    total_n = sum(cnt_n.values())
+    total_w = sum(cnt_w.values())
+
+    all_vocab = set(cnt_n.keys()) | set(cnt_w.keys())
+    vocab_size = len(all_vocab)
+
+    p_n = []
+    p_w = []
+    for token in all_vocab:
+        prob_n = (cnt_n.get(token, 0) + 1) / (total_n + vocab_size)
+        prob_w = (cnt_w.get(token, 0) + 1) / (total_w + vocab_size)
+        p_n.append(prob_n)
+        p_w.append(prob_w)
+
+    p_n = np.array(p_n)
+    p_w = np.array(p_w)
+    tvd = 0.5 * np.sum(np.abs(p_w - p_n))
+    return tvd
 
 
-def compute_tvd(dist1, dist2, all_tokens):
-    """计算两个分布之间的 Total Variation Distance。"""
-    tvd = 0.0
-    for token in all_tokens:
-        p1 = dist1.get(token, 0.0)
-        p2 = dist2.get(token, 0.0)
-        tvd += abs(p1 - p2)
-    return tvd / 2.0
-
-
-def bootstrap_tvd(baseline_texts, watermarked_texts, n_resamples=10000, seed=42):
-    """Bootstrap TVD 的置信区间。"""
+def bootstrap_tvd(baseline_texts, watermarked_texts, tokenizer,
+                  n_resamples=10000, seed=42):
     np.random.seed(seed)
     n = len(baseline_texts)
-    assert len(watermarked_texts) == n
-
-    # 收集所有出现的 token
-    all_tokens = set()
-    for text in baseline_texts + watermarked_texts:
-        all_tokens.update(text.split())
-    all_tokens = list(all_tokens)
 
     # 点估计
-    b_dist, _, _ = build_token_dist(baseline_texts)
-    w_dist, _, _ = build_token_dist(watermarked_texts)
-    point_estimate = compute_tvd(b_dist, w_dist, all_tokens)
+    point_est = compute_tvd(baseline_texts, watermarked_texts, tokenizer)
 
     # Bootstrap
-    tvd_samples = []
-    for _ in range(n_resamples):
+    samples = np.zeros(n_resamples)
+    for i in range(n_resamples):
         indices = np.random.choice(n, size=n, replace=True)
-        b_sample = [baseline_texts[i] for i in indices]
-        w_sample = [watermarked_texts[i] for i in indices]
-        b_d, _, _ = build_token_dist(b_sample)
-        w_d, _, _ = build_token_dist(w_sample)
-        tvd_samples.append(compute_tvd(b_d, w_d, all_tokens))
+        b_sample = [baseline_texts[j] for j in indices]
+        w_sample = [watermarked_texts[j] for j in indices]
+        samples[i] = compute_tvd(b_sample, w_sample, tokenizer)
 
-    tvd_samples = np.array(tvd_samples)
-    lo = np.percentile(tvd_samples, 2.5)
-    hi = np.percentile(tvd_samples, 97.5)
+    lo = np.percentile(samples, 2.5)
+    hi = np.percentile(samples, 97.5)
 
-    return point_estimate, lo, hi, tvd_samples
+    return point_est, lo, hi, samples
 
 
 def main():
@@ -79,19 +77,26 @@ def main():
     baseline_texts = [d['baseline_text'] for d in data]
     watermarked_texts = [d['watermarked_text'] for d in data]
 
-    print(f">>> Computing TVD bootstrap on {len(data)} text pairs, 10000 resamples...")
-    tvd, lo, hi, samples = bootstrap_tvd(baseline_texts, watermarked_texts)
+    MODEL_PATH = '/data1/cyt/models/facebook--opt-1.3b'
+    print(f"Loading tokenizer from {MODEL_PATH}...")
+    tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
 
-    print(f"\nResults:")
-    print(f"  TVD point estimate:      {tvd:.6f}")
-    print(f"  TVD 95% CI:              [{lo:.6f}, {hi:.6f}]")
-    print(f"  CI width:                {hi - lo:.6f}")
-    print(f"  Bootstrap mean:          {np.mean(samples):.6f}")
-    print(f"  Bootstrap std:           {np.std(samples):.6f}")
+    print(f">>> Bootstrap TVD on {len(data)} text pairs, 10000 resamples...")
+    tvd, lo, hi, samples = bootstrap_tvd(
+        baseline_texts, watermarked_texts, tokenizer)
 
-    # 验证: 基于 token 频率的 TVD (与 cryptographic_metrics.json 一致)
-    print(f"\nVerification (should match cryptographic_metrics.json):")
-    print(f"  TVD point ≈ 0.2809?      {'YES' if abs(tvd - 0.2809) < 0.001 else f'NO (diff={abs(tvd-0.2809):.4f})'}")
+    print(f"\n{'='*55}")
+    print(f"TVD Bootstrap Results (OPT tokenizer + Laplace smoothing)")
+    print(f"{'='*55}")
+    print(f"  Point estimate:    {tvd:.4f}")
+    print(f"  95% CI:            [{lo:.4f}, {hi:.4f}]")
+    print(f"  Bootstrap mean:    {np.mean(samples):.4f}")
+    print(f"  Bootstrap std:     {np.std(samples):.4f}")
+    print(f"  Match 0.2809?      {'YES' if abs(tvd - 0.2809) < 0.001 else f'NO (diff={abs(tvd-0.2809):.4f})'}")
+
+    # 输出可直接用于论文的格式化结果
+    print(f"\n>>> Paper-ready:")
+    print(f"    TVD = {tvd:.4f} [95% CI: {lo:.3f}, {hi:.3f}]")
 
 
 if __name__ == "__main__":
