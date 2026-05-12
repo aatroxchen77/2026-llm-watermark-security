@@ -11,6 +11,15 @@ import torch
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+import matplotlib.font_manager as fm
+
+# CJK 字体
+for _f in ['/usr/share/fonts/truetype/wqy/wqy-microhei.ttc',
+           'C:\\Windows\\Fonts\\msyh.ttc']:
+    if os.path.exists(_f):
+        fm.fontManager.addfont(_f)
+        plt.rcParams['font.family'] = fm.FontProperties(fname=_f).get_name()
+        break
 from core_classes import WatermarkEvaluator
 from transformers import AutoTokenizer
 
@@ -145,7 +154,7 @@ def main():
         targeted_means.append(t_mean)
         random_means.append(r_mean)
         diff = r_mean - t_mean
-        print(f"{rate:>14.0%} | {t_mean:>18.2f} | {r_mean:>18.2f} | {diff:>+10.2f}")
+        print(f"{rate:>14d}% | {t_mean:>18.2f} | {r_mean:>18.2f} | {diff:>+10.2f}")
     print("=" * 80)
 
     # 画图
