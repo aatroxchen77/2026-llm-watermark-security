@@ -63,6 +63,7 @@ def main():
         seeding_scheme='simple_1',
         device=DEVICE,
         tokenizer=tokenizer,
+        ignore_repeated_bigrams=False,
     )
 
     print(">>> Loading experiment data...")
