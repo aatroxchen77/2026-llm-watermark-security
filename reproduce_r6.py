@@ -90,7 +90,6 @@ def main():
         seeding_scheme='simple_1',
         device='cpu',
         tokenizer=tokenizer,
-        ignore_repeated_bigrams=False,
     )
 
     rates = list(range(0, 22, 2))
