@@ -131,6 +131,9 @@ INPUT C:\Users\Administrator\AppData\Roaming\MiKTeX\tex\latex\enumitem\enumitem.
 INPUT C:\Users\Administrator\AppData\Roaming\MiKTeX\tex\latex\enumitem\enumitem.sty
 INPUT D:\Program Files\MiKTeX\tex\latex\tools\longtable.sty
 INPUT D:\Program Files\MiKTeX\tex\latex\tools\longtable.sty
+INPUT .\watermark_report.aux
+INPUT .\watermark_report.aux
+INPUT watermark_report.aux
 OUTPUT watermark_report.aux
 INPUT D:\Program Files\MiKTeX\tex\context\base\mkii\supp-pdf.mkii
 INPUT D:\Program Files\MiKTeX\tex\context\base\mkii\supp-pdf.mkii

@@ -1,5 +1,5 @@
 # Fdb version 4
-["pdflatex"] 1778583966.93202 "d:/repo/szu-courseworks/modern-cryptography/lm-watermarking/report/watermark_report.tex" "watermark_report.pdf" "watermark_report" 1778583969.2702 2
+["pdflatex"] 1778593312.04395 "d:/repo/szu-courseworks/modern-cryptography/lm-watermarking/report/watermark_report.tex" "watermark_report.pdf" "watermark_report" 1778593313.84401 2
   "C:/Users/Administrator/AppData/Local/MiKTeX/miktex/data/le/pdftex/pdflatex.fmt" 1778577242 13340270 a0d33b712f3cdbb1abe637b32b4a2fa3 ""
   "C:/Users/Administrator/AppData/Roaming/MiKTeX/tex/generic/bigintcalc/bigintcalc.sty" 1576433602 40635 c40361e206be584d448876bba8a64a3b ""
   "C:/Users/Administrator/AppData/Roaming/MiKTeX/tex/generic/bitset/bitset.sty" 1575926576 33961 6b5c75130e435b2bfdb9f480a09a39f9 ""
@@ -92,10 +92,9 @@
   "D:/Program Files/MiKTeX/tex/latex/l3kernel/expl3.sty" 1774812389 6558 f72ebe51bdca4990db99e72c8133397c ""
   "D:/Program Files/MiKTeX/tex/latex/tools/longtable.sty" 1761901070 16014 dfa4b4d4e04a78a3f05a90c19711737a ""
   "D:/Program Files/MiKTeX/tex/latex/url/url.sty" 1388490452 12796 8edb7d69a20b857904dd0ea757c14ec9 ""
-  "d:/repo/szu-courseworks/modern-cryptography/lm-watermarking/report/watermark_report.tex" 1778583962 25319 b7b0715590d0f6b588acdb2351efc01a ""
-  "watermark_report.aux" 1778583968 138 dfd98a311dd1033c83c001c747190af7 "pdflatex"
-  "watermark_report.out" 1778583968 0 d41d8cd98f00b204e9800998ecf8427e "pdflatex"
-  "watermark_report.tex" 1778583962 25319 b7b0715590d0f6b588acdb2351efc01a ""
+  "d:/repo/szu-courseworks/modern-cryptography/lm-watermarking/report/watermark_report.tex" 1778593308 25319 f0388a93dd13f81f70aedf17296ef1b9 ""
+  "watermark_report.aux" 1778593313 138 dfd98a311dd1033c83c001c747190af7 "pdflatex"
+  "watermark_report.tex" 1778593308 25319 f0388a93dd13f81f70aedf17296ef1b9 ""
   (generated)
   "watermark_report.aux"
   "watermark_report.log"
