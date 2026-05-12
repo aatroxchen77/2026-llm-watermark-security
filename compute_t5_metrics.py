@@ -46,7 +46,9 @@ def main():
         for line in f:
             data.append(json.loads(line))
 
-    evaluator = WatermarkEvaluator(device='cuda:1', gamma=0.25)
+    MODEL_DIR = '/data1/cyt/models/'
+    JUDGE_MODEL = MODEL_DIR + 'gpt2-large'
+    evaluator = WatermarkEvaluator(device='cuda:1', gamma=0.25, judge_model_path=JUDGE_MODEL)
 
     ppl_paraphrased_list = []
     retention_list = []
