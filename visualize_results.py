@@ -74,6 +74,29 @@ def plot_ppl_impact(df, save_dir='report'):
     plt.savefig(path, dpi=300)
     print(f"已保存: {path}")
 
+def plot_ppl_zscore_tradeoff(df, save_dir='report'):
+    """生成 PPL vs Z-score 散点图，展示自然度-检测强度的权衡关系。"""
+    plt.figure(figsize=(10, 6))
+
+    # 分别绘制水印和释义攻击后的数据点
+    for label, x_col, y_col, marker, color in [
+        ('带水印 (Watermarked)', 'z_watermarked', 'ppl_watermarked', 'o', '#2196F3'),
+        ('释义攻击后 (Attacked)', 'z_paraphrased', 'ppl_watermarked', '^', '#FF9800'),
+    ]:
+        plt.scatter(df[x_col], df[y_col], c=color, marker=marker, s=80,
+                   label=label, edgecolors='white', linewidth=0.5, alpha=0.85)
+
+    plt.axvline(x=4.0, color='r', linestyle='--', alpha=0.6, label='检测阈值 (Z=4.0)')
+    plt.xlabel('检测强度 (Z-score)', fontsize=12)
+    plt.ylabel('困惑度 (PPL, 越低越自然)', fontsize=12)
+    plt.title('自然度-检测强度权衡 (PPL vs Z-score Trade-off)', fontsize=14)
+    plt.legend()
+    plt.tight_layout()
+
+    path = os.path.join(save_dir, 'ppl_zscore_tradeoff.png')
+    plt.savefig(path, dpi=300)
+    print(f"已保存: {path}")
+
 def plot_entropy_reliability(df, save_dir='report'):
     """生成高/低熵场景可靠性对比图（打点图展示个体差异）。"""
     plt.figure(figsize=(10, 6))
@@ -98,6 +121,7 @@ def main():
         plot_zscore_comparison(df)
         plot_ppl_impact(df)
         plot_entropy_reliability(df)
+        plot_ppl_zscore_tradeoff(df)
         print("\n[Success] All visual reports generated in report/ directory.")
 
 if __name__ == "__main__":
