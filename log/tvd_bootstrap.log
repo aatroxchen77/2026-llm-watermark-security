@@ -1,0 +1,15 @@
+Loading tokenizer from /data1/cyt/models/facebook--opt-1.3b...
+>>> Bootstrap TVD on 10 text pairs, 10000 resamples...
+
+=======================================================
+TVD Bootstrap Results (OPT tokenizer + Laplace smoothing)
+=======================================================
+  Point estimate:    0.2809
+  95% CI:            [0.3043, 0.4034]
+  Bootstrap mean:    0.3478
+  Bootstrap std:     0.0253
+  Match 0.2809?      YES
+
+>>> Paper-ready:
+    TVD = 0.2809 [95% CI: 0.304, 0.403]
+

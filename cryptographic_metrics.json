@@ -4,7 +4,7 @@
     "avg_z_retention_rate": 0.5264508975725682,
     "top_vulnerable_tokens": [
         {
-            "token": "\n",
+            "token": "\\n",
             "delta": 0.007703703703703706
         },
         {

@@ -1,0 +1,20 @@
+Loading tokenizer from /data1/cyt/models/facebook--opt-1.3b for frequency modeling...
+Analyzing Indistinguishability (IND)...
+Analyzing Channel Robustness...
+
+==================================================
+CRYPTOGRAPHIC DEEP ANALYSIS SUMMARY
+==================================================
+KL Divergence (D_KL(Pw||Pn)): 0.250797
+Total Variation Distance (TVD): 0.280889
+Average Z-score Retention (Robustness): 52.65%
+
+Top 5 Vulnerable Tokens (Side-channel Leakage):
+  Token: '\n   ' | Bias Delta: 7.703704e-03 (Base: 0.0199, W: 0.0121)
+  Token: ' in  ' | Bias Delta: 5.037037e-03 (Base: 0.0101, W: 0.0050)
+  Token: ' on  ' | Bias Delta: 3.851852e-03 (Base: 0.0027, W: 0.0065)
+  Token: '�    ' | Bias Delta: 3.555556e-03 (Base: 0.0033, W: 0.0068)
+  Token: ' The ' | Bias Delta: 3.555556e-03 (Base: 0.0021, W: 0.0056)
+
+[Success] Analysis metrics saved to: cryptographic_metrics.json
+
