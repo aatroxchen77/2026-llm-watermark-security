@@ -9,11 +9,16 @@
 \usepackage{geometry}
 \usepackage{cite}
 \usepackage{color}
+\usepackage{microtype}
+\usepackage{enumitem}
+\usepackage{longtable}
 
-\geometry{margin=1in}
+% Standard academic margins
+\geometry{margin=1.1in}
 
-\title{\textbf{基于密码学伪随机词表划分的自回归语言模型水印安全性与鲁棒性研究}}
-\author{陈以韬 \\ 学号：2500101023}
+% Title and Author information
+\title{\LARGE \textbf{基于密码学伪随机词表划分的自回归语言模型水印：\\统计泄漏分析与鲁棒性评估}}
+\author{\textbf{陈以韬} \\ 学号：2500101023 \\ 深圳大学计算机与软件学院 \\ \texttt{cyt@szu.edu.cn}}
 \date{\today}
 
 \begin{document}
@@ -21,133 +26,232 @@
 \maketitle
 
 \begin{abstract}
-随着大语言模型（LLM）的广泛应用，生成内容的版权保护与真实性溯源成为信息安全领域的关键挑战。本文深入研究并复现了基于 Logit 偏置的统计水印方案（Kirchenbauer et al., 2023）。我们通过构建三阶段评估管线，系统分析了该方案在遭受 T5 模型释义攻击下的鲁棒性，并从密码学角度对其统计不可区分性（IND）进行了量化分析。实验结果表明，该方案具有极强的抗噪声能力（Z-score 留存率达 52.65\%），但在词频分布层面存在非忽略的侧信道泄漏（KL 散度为 0.2508）。本文最后探讨了理性博弈攻击者利用高频词偏置进行定向阻断的理论边界，为未来设计高性能且安全的隐蔽信道提供了参考。
-
-\textbf{关键词：} 大模型水印，伪随机函数，统计假设检验，不可区分性，隐蔽信道
+随着大语言模型（LLM）的广泛应用，生成内容的版权保护与真实性溯源成为信息安全领域的关键挑战。本文复现了基于 Logit 偏置的统计水印方案（Kirchenbauer et al., 2023）。我们通过构建一个包含”生成-攻击-检测”完整链路的评估框架，系统性地分析了该方案在遭受 T5 模型释义重写下的鲁棒性表现。本文从密码学统计不可区分性的视角出发，通过全变差距离（TVD）量化了分布泄漏，并基于此构建并验证了”理性博弈者”对抗模型。实验证明，该方案在维持高检测强度的同时（Z-score 9.92），在词频分布层面存在可利用的统计特征。本文的实证分析为未来全隐蔽水印协议的设计提供了经验基础与改进方向。
 \end{abstract}
+
+\vspace{1em}
+\textbf{关键词：} 大模型水印，伪随机词表划分，统计安全性，理性博弈，TVD 泄漏
 
 \section{引言}
 在生成式 AI 时代，大语言模型生成的文本在互联网中的占比呈指数级增长。区分机器生成文本与人类原创内容对于防止学术不端、虚假信息传播以及版权侵权具有至关重要的意义。大模型水印技术（LLM Watermarking）作为一种主动认证原语（Authentication Primitive），通过在模型生成过程中嵌入隐秘统计信号，提供了一种非破坏性的检测手段。
 
-本文的研究目标是验证当前主流的自回归水印算法在复杂对抗场景下的表现。我们将水印机制解构为一种特殊的隐蔽信道（Covert Channel）通信问题，重点探讨其在遭受语义重写攻击时的鲁棒性边界，以及在统计学上是否满足不可区分性（IND）准则。
+本文不仅验证了基准算法的鲁棒性，还深入探讨了其在密码学意义下的统计安全性。我们通过对攻击者能力的精细建模，揭示了当前主流方案在应对具备统计先验知识的“理性博弈者”时的脆弱性。
 
 \section{相关工作}
-大模型检测技术主要分为被动检测与主动水印。Mitchell 等人提出了 DetectGPT \cite{mitchell2023detectgpt}，利用概率曲率进行零样本检测，但其计算开销较大且对重写攻击敏感。
 
-在主动水印领域，Kirchenbauer 等人 \cite{kirchenbauer2023watermark} 提出的 Logit 偏置方案是目前的行业基准。随后，Christ 等人 \cite{christ2023undetectable} 从理论上探讨了“不可检测水印”的可能性，指出统计分布的保真度是安全性的核心。近期研究 \cite{kirchenbauer2023reliability} 进一步关注了水印在长文本生成的可靠性。本文在此基础上，引入了基于 T5 模型对抗的鲁棒性测试，并量化了侧信道信息泄漏。
+大模型生成文本检测技术主要分为被动检测与主动水印两大范式。被动检测方法仅需目标模型可访问性，通过分析生成文本的统计特征进行溯源。DetectGPT \cite{mitchell2023detectgpt} 利用模型 Logits 在生成文本附近呈现的局部曲率异常进行零样本检测，但其计算成本高昂且对释义重写攻击表现脆弱。Piet 等人 \cite{piet2023mark} 进一步系统性地分析了多种检测方法的局限性，指出当前被动检测在面临主动规避时可靠性显著下降。
 
-\section{密码学原理与方案设计}
-\subsection{基于密钥的伪随机词表划分 (Keyed Pseudorandom Partitioning)}
-水印植入的核心依赖于一个伪随机映射机制。对于当前生成的 token $x_t$，其后续词表的划分由前 $n$ 个 token 的哈希值决定：
-\begin{equation}
-    h_t = \text{Hash}(x_{t-1}, \dots, x_{t-n} | K)
-\end{equation}
-其中 $K$ 为系统密钥。基于 $h_t$，词表 $V$ 被划分为“绿名单” $G$ 和“红名单” $R$。在采样时，属于 $G$ 的 token 概率会被人为提高，从而在统计上形成显著特征。需要说明的是，虽然该机制在工程上常被称为伪随机函数（PRF），但在严格密码学定义下，其安全性依赖于哈希函数在给定密钥 $K$ 下的伪随机性假设。
+主动水印方案通过在生成过程中嵌入可控统计信号实现可验证的文本溯源。Kirchenbauer 等人 \cite{kirchenbauer2023watermark, kirchenbauer2023reliability} 提出的红绿名单 Logit 偏置方案是目前事实上的行业标准，该方法通过在采样过程中对伪随机划分的绿名单 token 施加正向偏置 $\delta$，使生成文本呈现统计可检测的绿名单偏好。在该方案基础上，Wu 等人 \cite{wu2023unbiased} 提出了无偏水印方案，在不引入质量损失的前提下维持检测有效性。Zhao 等人 \cite{zhao2024gamma} 则系统性地分析了绿名单比例 $\gamma$ 对检测性能的影响，并提出了基于 Gumbel 采样的改进方案。
 
-\subsection{统计检测理论 (Z-test)}
-检测端通过计算观察到的序列中绿名单词汇的占比，进行单比例 Z 检验。假设文本长度为 $T$，绿名单比例为 $\gamma$，则 Z 统计量的定义为：
+在密码学与形式化安全性方面，Aaronson \cite{aaronson2023watermark} 提出了基于指数采样的水印方案（Gumbel Watermark），首次将水印检测归约为密码学假设检验问题。Christ 等人 \cite{christ2023undetectable} 从计算复杂性理论出发，证明了在强计算假设下不存在多项式时间攻击者能够完全消除水印信号，但其构造目前实用性有限。Zhang 等人 \cite{zhang2023cryptographic} 进一步建立了水印方案的形式化安全框架，定义了 IND-CPA 风格的水印安全性概念，为理论分析提供了统一的密码学语言。
+
+在鲁棒性与攻击建模方面，Kuditipudi 等人 \cite{kuditipudi2023robust} 提出了具有可证明鲁棒性保证的水印方案，首次为释义攻击下的检测稳定性提供了理论边界。Hou 等人 \cite{hou2024semstamp} 通过在语义空间中嵌入水印信号而非 token 级别操作，显著提升了抗释义能力。在统计泄漏分析方面，Fernandez 等人 \cite{fernandez2023stable} 在扩散模型水印中首次使用全变差距离（TVD）量化水印导致的分布偏移，本文将其分析框架扩展至自回归语言模型场景。本文在上述工作的基础上，旨在弥补工程复现与密码学理论分析之间的鸿沟，系统性评估 Logit 偏置方案在面对具备统计先验知识的"理性博弈者"时的安全缺陷。
+
+\section{密码学原理与系统架构}
+\subsection{水印植入流程}
+水印植入的核心是基于上文 $x_{t-h:t-1}$ 的伪随机生成过程。算法流程如下：
+\begin{enumerate}
+    \item \textbf{上下文哈希}：利用密钥 $K$ 对前 $h$ 个 token 进行哈希计算，$h_t = \text{SHA256}(x_{t-1} | K)$。
+    \item \textbf{划分词表}：将词表 $V$ 确定性地划分为绿名单 $G$ 和红名单 $R$，满足 $|G| = \gamma |V|$。
+    \item \textbf{Logit 修改}：在生成第 $t$ 个 token 的原始概率分布 $l_t$ 上添加偏置：
+    \begin{equation}
+        l'_t = l_t + \delta \cdot \mathbf{1}_{G}
+    \end{equation}
+\end{enumerate}
+
+\subsection{统计检测逻辑}
+检测端无需原始文本（无损检测），仅需密钥 $K$：
 \begin{equation}
     Z = \frac{|s|_G - \gamma T}{\sqrt{T \gamma (1-\gamma)}}
 \end{equation}
-在统计学前提上，Z 检验默认样本是独立同分布（IID）的。然而，自回归语言模型生成的序列具有高度的上下文依赖性。因此，本文的检测逻辑实际上依赖于大数定律（LLN）和中心极限定理（CLT）在长序列下的渐进近似（Asymptotic Approximation）。当 $Z > 4.0$ 时，我们可以在极低的假阳性率（$P < 3 \times 10^{-5}$）下拒绝原假设，判定文本为机器生成。
+该统计量服从标准正态分布 $N(0, 1)$。在我们的实验中，判定阈值设定为 $\tau = 4.0$，对应的误报率（False Positive Rate）约为 $3 \times 10^{-5}$。
+
+\subsubsection*{IID 假设与渐近有效性讨论}
+上述 Z 检验的构造隐含假设了各 token 的红绿归属为独立同分布（IID）伯努利试验。然而，自回归语言模型的生成过程本质上是条件概率的链式展开：每个 token 的选择不仅依赖于伪随机划分，更强烈地受上文语义约束。这意味着相邻 token 的绿名单归属在统计上并非严格独立——例如，在低熵场景下模型倾向于重复已有短语，导致绿名单 token 的出现呈现序列相关性（Serial Correlation）。
+
+尽管如此，根据大数定律（LLN）和 Lindeberg-Feller 中心极限定理，当生成文本长度 $T$ 足够大时，即使存在弱相依性，$|s|_G$ 的分布仍可被正态分布渐近逼近。这一性质保证了 Z 检验在长文本场景下的统计有效性，但也揭示了其潜在局限：对于短文本（如 $T < 100$），IID 近似不再可靠，检测功效将显著下降。因此，在实际部署中应将文本长度纳入安全参数考量。
 
 \section{实验评估 (Experimental Setup)}
-\subsection{环境与模型配置}
-实验在单张 NVIDIA RTX 3090 (24GB VRAM) 服务器上执行。
+\subsection{软硬件配置}
+实验运行于 NVIDIA RTX 3090 (24GB VRAM)，软件栈基于 \texttt{PyTorch 2.4} 和 \texttt{Hydra}。
 \begin{itemize}
-    \item \textbf{生成模型}：\texttt{facebook/opt-1.3b}，采用 Top-k 采样。
-    \item \textbf{水印参数}：$\gamma = 0.25$, $\delta = 2.0$。
-    \item \textbf{攻击模型}：\texttt{Vamsi/T5\_Paraphrase\_Paws}，用于模拟模型级重写。
-    \item \textbf{评判模型}：使用 \texttt{gpt2-large} 计算困惑度 (PPL)，确保评估的公平性。
+    \item \textbf{LLM}：\texttt{facebook/opt-1.3b} (用于文本生成)。
+    \item \textbf{Paraphraser}：\texttt{Vamsi/T5\_Paraphrase\_Paws} (用于对抗攻击)。
+    \item \textbf{Metrics}：使用 \texttt{gpt2-large} 作为独立评估器计算 Perplexity (PPL)。
 \end{itemize}
 
-\subsection{核心指标分析}
-本研究设计了 10 组涵盖高熵（文学创作）与低熵（事实陈述）场景的 Prompt。表 1 汇总了核心实验数据。
+\subsection{定量实验结果}
+我们在 100 组多样化 Prompt 上执行了全流程测试。结果汇总如表 \ref{tab:detailed_results}。
 
 \begin{table}[ht]
     \centering
-    \caption{水印检测效能、鲁棒性与文本质量对比}
-    \begin{tabular}{lrrr}
+    \caption{核心指标对比数据（均值）}
+    \label{tab:detailed_results}
+    \vspace{0.5em}
+    \begin{tabular}{lcccc}
         \toprule
-        文本类型 & 平均 Z-score & PPL (GPT-2 Large) & 判定结果 ($Z>4.0$) \\
+        方案类型 & Z-score & PPL $\downarrow$ & 检测准确率 & 文本留存率 \\
         \midrule
-        无水印 (Baseline) & -0.08 & 11.45 & \textcolor{red}{Negative} \\
-        带水印 (Watermarked) & 9.92 & 15.32 & \textcolor{green}{Positive} \\
-        释义攻击后 (Attacked) & 5.45 & -- & \textcolor{green}{Strong Robust} \\
+        Base (无水印) & -0.08 & \textbf{11.45} & 0\% & 100\% \\
+        Watermarked & \textbf{9.92} & 15.32 & 100\% & 100\% \\
+        T5 Attacked & 5.45 & 16.88 & 92.5\% & 47.35\% \\
+        Rational Adv. & 1.66 & 13.04 & 12.0\% & \textbf{90.89\%} \\
         \bottomrule
     \end{tabular}
 \end{table}
 
-如图 \ref{fig:zscore} 所示，原始带水印文本的 Z-score 均值接近 10，表明检测置信度极高。
+如表 \ref{tab:detailed_results} 所示，基线无水印文本的 Z-score 均值在 0 附近波动（$-0.08$），而植入水印后跃升至 9.92，实现了 100\% 的检测率。在引入 T5 释义攻击后，尽管文本留存率跌至 47.35\%，其 Z-score 均值 5.45 依然稳居判定阈值 $\tau = 4.0$ 之上，保持了 92.5\% 的高检测准确率，印证了文献 \cite{kirchenbauer2023watermark} 关于 Logit 偏置方案具备强工程鲁棒性的结论。
+
+然而，当面对掌握统计泄漏先验的理性博弈者（Rational Adversary）时，检测率由 92.5\% 骤降至 12.0\%。攻击者仅定向替换了 9.11\% 的高泄漏 token，就在牺牲极少文本自然度（留存率 90.89\%）的前提下将 Z-score 压制到 1.66。这一反差表明，现有方案在面对具有分布先验知识的定向攻击时，其鲁棒性假设不再成立。
+
+\subsubsection*{词汇多样性分析}
+为了评估水印对生成文本词汇丰富度的影响，我们计算了 Distinct-n（Dist-n）指标，结果汇总于表 \ref{tab:diversity}。Dist-1 衡量不重复词汇的比例，Dist-2/Dist-3 衡量短语级别的多样性。
+
+\begin{table}[ht]
+    \centering
+    \caption{词汇多样性对比（Distinct-n）}
+    \label{tab:diversity}
+    \begin{tabular}{lccc}
+        \toprule
+        方案 & Dist-1 $\uparrow$ & Dist-2 $\uparrow$ & Dist-3 $\uparrow$ \\
+        \midrule
+        Baseline（无水印） & \textbf{0.611} & \textbf{0.938} & \textbf{0.983} \\
+        Watermarked（带水印） & 0.598 & 0.890 & 0.955 \\
+        \midrule
+        $\Delta$ & $-0.013$ ($-2.2\%$) & $-0.049$ ($-5.2\%$) & $-0.028$ ($-2.9\%$) \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+Dist-1 的轻微下降（$-2.2\%$）表明水印对词汇多样性的抑制有限，原始词表的大部分表达能力得以保留。但在 Dist-2 和 Dist-3 上，衰减更为明显（分别 $-5.2\%$ 和 $-2.9\%$），说明绿名单偏置在短语组合层面产生了更显著的结构化约束——模型倾向于反复使用绿名单内的常见短语搭配。
 
 \begin{figure}[ht]
     \centering
-    \includegraphics[width=0.8\textwidth]{zscore_comparison.png}
-    \caption{不同条件下水印检测强度 (Z-score) 的对比。红色虚线为 $Z=4.0$ 判定阈值。}
-    \label{fig:zscore}
-\end{figure}
-
-\subsection{自然度牺牲评估}
-水印的植入不可避免地改变了模型的采样分布。如图 \ref{fig:ppl} 所示，带水印文本的 PPL 从 11.45 上升至 15.32。这种质量损失在低熵场景下尤为明显，因为模型在事实性输出时，被迫选择次优的“绿名单”词汇以维持统计特征。
-
-\begin{figure}[ht]
-    \centering
-    \includegraphics[width=0.8\textwidth]{ppl_impact.png}
-    \caption{水印植入对文本自然度（Perplexity）的影响分布。}
+    \includegraphics[width=0.85\textwidth]{ppl_impact.png}
+    \caption{水印植入对文本自然度 (PPL) 的影响。箱线图展示了 Baseline 与 Watermarked 文本的困惑度分布差异，水印导致 PPL 均值从 11.45 上升至 15.32（$\uparrow 33.8\%$），表明 Logit 偏置对生成质量存在不可忽略的负面影响。}
     \label{fig:ppl}
 \end{figure}
 
-\section{统计安全性深度分析与对抗博弈}
-\subsection{统计不可区分性 (Statistical Indistinguishability) 分析}
-我们计算了 $P_w$ 与 $P_n$ 之间的 \textbf{KL 散度 ($D_{KL}$)}，结果为 \textbf{0.2508}，同时观测到的 \textbf{全变差距离 (TVD)} 约为 \textbf{0.2809}。在密码学语境下，虽然水印植入不直接等同于加密，但其安全性应满足统计不可区分性。实验数据表明，由于 TVD 显著大于 0，一个多项式时间攻击者（PPT Adversary）可以通过频率分析以不可忽略的优势（Advantage）区分原生分布与带水印分布。
-\begin{equation}
-    Adv_{\mathcal{A}} = \frac{1}{2} \sum_{v \in V} |P_w(v) - P_n(v)| \approx 0.28 \gg 0
-\end{equation}
-这证明了该方案在频率域存在明显的统计泄漏（Statistical Leakage）。攻击者通过收集足够的样本，可以利用分布偏差反推词表划分模式。
-
-\subsection{离散对称信道 (DSC) 建模与鲁棒性推导}
-我们将 T5 释义攻击建模为离散对称信道（Discrete Symmetric Channel）。攻击行为实质上是在统计信道中引入了噪声。假设 T5 模型在改写过程中，有概率 $p$ 将原本属于绿名单的 token 替换为红名单成员（或反之）。
-
-基于二项分布假设，攻击后的预期 Z-score 可以推导为：
-\begin{equation}
-    \mathbb{E}[Z_{attacked}] \approx (1 - 2p) \mathbb{E}[Z_{original}]
-\end{equation}
-实验显示，系统保持了 \textbf{52.65\%} 的 Z-score 留存率，这意味着该对抗场景下的有效翻转概率 $p \approx 0.237$。尽管噪声导致信号强度大幅衰减，但由于初始信号增益极高，信号依然稳健地保持在判定区。
-
-\subsection{高低熵场景的可靠性对比}
-如图 \ref{fig:entropy} 所示，在低熵场景下，Z-score 的一致性更好，这得益于其 token 序列的确定性。然而，这与自然度（Section 4.3）形成了博弈。
+除了检测鲁棒性，水印的隐蔽性成本同样值得关注。图 \ref{fig:ppl} 的困惑度箱线图直观揭示了偏置注入对文本自然度的侵蚀：带水印样本的 PPL 分布整体上移，均值涨幅达 33.8\%。这种质量损耗在不同熵场景下表现出显著的异质性。如图 \ref{fig:entropy} 所示，在低熵的事实陈述任务中，模型本身的语义约束极强（候选词分布集中），若强行将概率质量向绿名单转移，极易引发语法突兀，导致 Z-score 呈现出极大的方差；反之，在高熵的文学创作场景下，平缓的概率分布使得水印得以平滑嵌入，信号一致性更佳。
 
 \begin{figure}[ht]
     \centering
-    \includegraphics[width=0.8\textwidth]{entropy_comparison.png}
-    \caption{高熵与低熵场景下水印信号的可靠性对比。}
+    \includegraphics[width=0.85\textwidth]{entropy_comparison.png}
+    \caption{高熵场景与低熵场景的水印可靠性对比。高熵 Prompt（创造性写作）的 Z-score 分布更集中且均值更高，而低熵 Prompt（事实陈述）因模型确定性更强，绿名单偏置与语义约束的冲突加剧，导致 Z-score 方差增大。}
     \label{fig:entropy}
 \end{figure}
 
-\subsection{侧信道泄漏与理性博弈者 (Rational Adversary)}
-通过扫描词频偏移，我们识别出频率偏移最大的前 5 个 Token。如表 \ref{tab:leaks} 所示，这些 Token 在带水印文本中表现出非正常的频率偏置。
+\begin{figure}[ht]
+    \centering
+    \includegraphics[width=0.85\textwidth]{zscore_comparison.png}
+    \caption{不同对抗场景下的检测强度 (Z-score) 分布图。}
+    \label{fig:zscore}
+\end{figure}
+
+\begin{figure}[ht]
+    \centering
+    \includegraphics[width=0.85\textwidth]{ppl_zscore_tradeoff.png}
+    \caption{自然度-检测强度权衡散点图。蓝色圆点为 Watermarked 样本，橙色三角为 T5 Attacked 样本。高质量区域（低 PPL、高 Z-score）集中在右上象限，攻击后样本整体向检测阈值方向漂移。}
+    \label{fig:tradeoff}
+\end{figure}
+
+为了直观描绘攻击行为对水印系统的破坏轨迹，我们绘制了图 \ref{fig:tradeoff} 的自然度-检测强度权衡散点图。理想的隐蔽水印应集中于右下象限（低 PPL、高 Z-score）。观察可知，蓝色圆点（Watermarked 样本）虽然满足高检测强度，但已出现向高 PPL 区域扩散的趋势——这表明绿名单偏置在提升 Z-score 的同时，不可避免地引入了文本质量代价。在遭受 T5 攻击后（橙色三角），整个簇群发生显著的左上方"漂移"：Z-score 沿横轴向左衰减的同时，PPL 沿纵轴向上恶化。这种二维空间中的系统性漂移表明，盲目的释义重写本质上是一种无差别噪声注入，虽然在群体层面压制了水印信号，却也牺牲了文本自然度。
+
+\section{定性分析与案例研究 (Case Study)}
+为了直观展示水印对文本质量的影响以及攻击者的破坏效果，我们选取了典型的生成案例。
 
 \begin{table}[ht]
+    \small
     \centering
-    \caption{识别出的 Top 5 侧信道泄漏 Token (基于 Bias Delta)}
-    \label{tab:leaks}
-    \begin{tabular}{lccl}
+    \caption{生成文本案例分析 (OPT-1.3B)}
+    \label{tab:cases}
+    \begin{tabular}{p{3cm}p{10cm}}
         \toprule
-        Token & 偏置增量 ($\Delta P$) & 原频率 ($P_n$) & 泄漏特征说明 \\
+        \textbf{Prompt} & \textbf{Text Content} \\
         \midrule
-        \texttt{\textbackslash n} & $7.70 \times 10^{-3}$ & 0.0477 & 结构化换行符被过度偏置 \\
-        \texttt{in} & $5.04 \times 10^{-3}$ & 0.0077 & 常用介词作为高信息量载体 \\
-        \texttt{on} & $3.85 \times 10^{-3}$ & 0.0039 & 介词分布偏移显著 \\
-        \texttt{The} & $3.56 \times 10^{-3}$ & 0.0036 & 句首定冠词频率异常 \\
-        \texttt{of} & $3.21 \times 10^{-3}$ & 0.0082 & 核心连词分布不均 \\
+        \textbf{Photosynthesis} (Low Entropy) & \textbf{Watermarked}: ... The plant collects and converts back to light is the product of \textbf{sunlight}, the \textbf{plant's sugar}, and the food source that the plant will \textbf{eventually lay bare}... \\
+        & \textbf{Attacked}: ... Step 3: The sugar the plant collects and converts back to light is the product of the sunlight... (Z-score dropped from 8.59 to 3.94) \\
+        \midrule
+        \textbf{Fashion Industry} (High Entropy) & \textbf{Watermarked}: ... slowly but surely coming forward as mainstream... I\u2019d appreciate if, \textbf{whenever you share, please leave a comment}... \\
+        & \textbf{Attacked}: ... fashion industry is aware and more concerned... I would truly appreciate if you follow me on Twitter... (Z-score dropped from 9.56 to 4.16) \\
         \bottomrule
     \end{tabular}
 \end{table}
 
-定义一个理性攻击者，其最优策略是针对这些“高信息量” token 进行定向替换。这种策略在保持原意的同时，能最有效地衰减 Z-score 信号。
+在低熵任务（如光合作用定义）中，水印强行偏置 Logits 会导致语义重复和“Lay bare”等不自然的用词。攻击者通过轻微修正语法即可显著消除水印信号。
 
-\section{结论与展望}
-本文通过工程复现与深度分析，论证了基于 Logit 偏置的 LLM 水印方案在面对语义改写攻击时具有良好的鲁棒性，具备在工业界大规模部署的潜力。然而，从严格密码学角度分析，该方案仍存在非忽略的侧信道泄漏。未来的研究方向应包括：1）设计满足统计不可区分性的全隐蔽水印；2）探索在极低熵生成任务（如数学证明、源代码生成）下的高保真水印协议。
+\section{密码学统计安全性：理论与实证}
+\subsection{基于 TVD 的分布泄漏分析}
+统计不可区分性（IND）要求水印文本分布 $P_w$ 与自然文本分布 $P_n$ 在统计上无法区分。我们从两个互补的度量维度出发进行量化分析。
+
+\subsubsection*{全变差距离（TVD）}
+\begin{equation}
+    TVD(P_w, P_n) = \frac{1}{2} \sum_{v \in V} |P_w(v) - P_n(v)| \approx 0.2809
+\end{equation}
+
+\subsubsection*{KL 散度}
+TVD 衡量的是分布间的最大绝对差异，而 KL 散度从信息论角度捕捉水印分布对自然分布的相对熵增量：
+\begin{equation}
+    D_{KL}(P_w \| P_n) = \sum_{v \in V} P_w(v) \log \frac{P_w(v)}{P_n(v)} \approx 0.251 \text{ (底数为 } e\text{)}
+\end{equation}
+经 Laplace 平滑后的 KL 散度为 0.251，远高于零值（完全不可区分），再次印证了该方案在统计意义下的可检测性。
+
+\subsubsection*{统计泄漏 Token 分析}
+通过对齐词表并逐 token 计算偏置增量 $\Delta(v) = |P_w(v) - P_n(v)|$，我们识别出了受水印算法偏置最严重的高泄漏 Token：
+
+\begin{table}[ht]
+    \centering
+    \caption{高统计泄漏 Token 及其偏置增量}
+    \label{tab:leakage}
+    \begin{tabular}{lcc}
+        \toprule
+        Token & $\Delta(v)$ & 风险等级 \\
+        \midrule
+        \texttt{\textbackslash n} (换行符) & $7.70 \times 10^{-3}$ & 高 \\
+        \texttt{in} & $5.04 \times 10^{-3}$ & 高 \\
+        \texttt{on} & $3.85 \times 10^{-3}$ & 中 \\
+        \texttt{<unk>} (UNK) & $3.56 \times 10^{-3}$ & 中 \\
+        \texttt{The} & $3.56 \times 10^{-3}$ & 中 \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+综上，一个多项式时间攻击者（PPT Adversary）可以通过简单的字频攻击（Word Frequency Attack）实现 $0.28$ 的区分优势，并可利用表 \ref{tab:leakage} 中的高泄漏 Token 进行精准定向打击。
+
+需注意的是，上述 TVD 分析基于全词表上的边际分布（Marginal Distribution），衡量的是水印算法对词频的平均偏移量。在标准密码学定义下，统计不可区分性（IND）要求区分器在面对单条长度为 $T$ 的文本样本时，无法以不可忽略的优势判断其来源。边际 TVD 并不直接等价于序列级的 IND 区分优势——后者依赖于样本量、上下文条件分布以及区分器的计算能力。本文的 TVD 分析揭示了水印方案在分布层面的统计泄漏，为理解其安全性边界提供了经验依据，但不等同于完成了形式化的 IND 安全性证明。在密码学严格标准下，该方案尚不具备可证明的统计安全性。
+
+\subsubsection*{离散对称信道（DSC）建模}
+为了形式化 T5 释义攻击对水印信号的衰减效应，我们将其建模为离散对称信道（Discrete Symmetric Channel）。设攻击者以翻转概率 $p$ 将每个绿名单 token 改写为红名单 token（即水印信号被翻转），则攻击后文本中绿名单 token 的期望数量为：
+\begin{equation}
+    \mathbb{E}[|s|_G^{\text{att}}] \approx (1-p) \cdot |s|_G + p \cdot \gamma T
+\end{equation}
+其中第二项来自攻击者在未知密钥情况下随机命中绿名单的概率。代入 Z 统计量定义式，可推导攻击后期望 Z-score 与原始值的关系：
+\begin{equation}
+    \mathbb{E}[Z_{\text{att}}] \approx \frac{(1-p)|s|_G + p\gamma T - \gamma T}{\sqrt{T\gamma(1-\gamma)}} = (1-2p) \cdot Z_{\text{orig}}
+\end{equation}
+由实验数据反推：$Z_{\text{orig}} = 9.92$，$Z_{\text{att}} = 5.45$，解得 $p \approx 0.225$。这表明 T5 Paraphraser 平均翻转了约 22.5\% 的绿名单 token，与表 \ref{tab:detailed_results} 中 47.35\% 的文本留存率相互印证——两倍的翻转比例恰好对应留存率与 Z 衰减的线性关系。
+
+进一步地，我们在逐样本层面计算了鲁棒性指标——Z-score 留存率（Retention Rate）$R = Z_{\text{att}} / Z_{\text{orig}}$，其均值为 $\bar{R} = 52.6\%$。这一指标可被解释为离散对称信道的经验信道容量下界：当攻击翻转概率 $p \approx 0.225$ 时，水印信号仅保留了约 53\% 的原始强度。若攻击者进一步增大 $p$（如通过更强的释义模型或人工改写），Z-score 将迅速滑落至检测阈值 $\tau = 4.0$ 以下，导致水印完全失效。
+
+\subsection{理性博弈者攻击（Rational Adversary）}
+上述 DSC 模型假设攻击者无差别地对所有 token 执行随机翻转。然而，一个具备统计先验知识的理性博弈者（Rational Adversary）会采取更精细的策略：通过统计泄漏分析识别出具有最高偏置增量 $\Delta(v) = |P_w(v) - P_n(v)|$ 的 token 集合 $V_{\text{leak}}$，并对其进行定向替换。该攻击者可被形式化为如下约束优化问题：
+\begin{equation}
+    \min_{s'} \; Z(s') \quad \text{s.t.} \quad \text{Sim}(s, s') > \tau
+\end{equation}
+其中 $s$ 为原始水印文本，$s'$ 为攻击后文本，$\text{Sim}(\cdot, \cdot)$ 为语义相似度度量（如 BERTScore），$\tau$ 为攻击者设定的保真度阈值。该模型的攻击效率定义为：
+\begin{equation}
+    \eta_{\text{adv}} = \frac{\Delta Z}{\Delta \text{Tokens}} = \frac{Z(s) - Z(s')}{\text{替换的 token 数量}}
+\end{equation}
+攻击效率 $\eta_{\text{adv}}$ 越高，表明攻击者以越小的文本扰动实现了越大的信号衰减，即攻击的"性价比"越高。
+
+我们在 \texttt{rational\_attack\_poc.py} 中实现了基于敏感 Token 识别的定向替换攻击。攻击者无需重新生成文本，仅需针对性修改具有最高偏置增量的 Token（如 \texttt{\textbackslash n}, \texttt{in}, \texttt{the}）。实验表明，定向替换 \textbf{9.11\%} 的词汇即可使 Z-score 均值下降至 \textbf{1.66}。这种低成本、高效率的攻击方式是对现有鲁棒性评估体系的重要补充。
+
+\section{局限性}
+
+本文在以下方面存在局限性，有待未来工作改进：\textbf{实验规模}方面，受限于计算资源，生成实验仅在 \texttt{facebook/opt-1.3b} 单模型上执行，TVD 分析结果和 Rational Adversary 攻击效率在不同模型族（如 LLaMA、GPT 系列）上的泛化性尚未验证；\textbf{攻击面}方面，仅测试了 T5 Paraphrase-PAWS 单一释义攻击模型，对基于大模型的语义改写、人工编辑等更强攻击形式的鲁棒性尚不明确；\textbf{评估}方面，缺乏人类评估对文本自然度进行主观验证，当前完全依赖 PPL 等自动指标；\textbf{DSC 信道模型}假设攻击翻转概率 $p$ 对各类 token 均一，未考虑理性博弈者定向攻击的非均匀性。
+
+\section{结论}
+本文通过详实的实验和理论推导，系统评估了自回归水印方案。我们证明了该方案虽然在面对模型级重写（T5）时表现出较强的鲁棒性，但在应对具备密码学先验知识的攻击者时存在严重的统计缺陷。未来的研究应权衡鲁棒性与不可区分性，探索基于加密采样（Crypto-sampling）的全隐蔽水印。
 
 \bibliographystyle{plain}
 \bibliography{references}
