@@ -25,7 +25,7 @@ def setup_plotting_style():
     """配置绘图风格和中文字体。"""
     sns.set_theme(style="whitegrid")
     # 针对不同系统配置中文字体
-    plt.rcParams['font.sans-serif'] = ['SimHei', 'DejaVu Sans'] 
+    plt.rcParams['font.sans-serif'] = ['SimHei', 'WenQuanYi Micro Hei', 'Droid Sans Fallback', 'DejaVu Sans'] 
     plt.rcParams['axes.unicode_minus'] = False
 
 def plot_zscore_comparison(df, save_dir='report'):
