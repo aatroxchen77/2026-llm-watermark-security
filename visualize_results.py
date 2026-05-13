@@ -1,128 +1,185 @@
-import json
+"""
+Publication-quality figures for the LLM watermark reproduction study.
+Style: Nature single-column (89 mm), Okabe-Ito colorblind-safe palette.
+Output: PDF (vector) + PNG (300 DPI) for each figure.
+"""
+import json, os, sys
 import pandas as pd
+import numpy as np
+import matplotlib as mpl
+mpl.use('Agg')
 import matplotlib.pyplot as plt
 import seaborn as sns
-import os
 
-"""
-实验结果可视化工具
-本脚本读取 experiment_results.jsonl，生成用于报告的出版级图表。
-包含 Z-score 分布、PPL 质量影响以及不同熵值场景下的可靠性分析。
-"""
+# ── Publication style presets (Nature single-column) ──────────────────────
+NATURE_SINGLE_INCH = 89 / 25.4  # 3.50 inches
+OKABE_ITO = ['#E69F00', '#56B4E9', '#009E73', '#F0E442',
+             '#0072B2', '#D55E00', '#CC79A7', '#000000']
 
-def load_data(file_path='experiment_results.jsonl'):
-    """加载 JSONL 实验数据并转换为 DataFrame。"""
-    data = []
-    if not os.path.exists(file_path):
-        print(f"错误: 找不到数据文件 {file_path}")
-        return None
-    with open(file_path, 'r', encoding='utf-8') as f:
-        for line in f:
-            data.append(json.loads(line))
+def setup_style():
+    mpl.rcParams.update({
+        'font.family': 'sans-serif',
+        'font.sans-serif': ['Arial', 'Helvetica', 'DejaVu Sans',
+                            'SimHei', 'WenQuanYi Micro Hei'],
+        'font.size': 7,
+        'axes.labelsize': 8,
+        'axes.titlesize': 8,
+        'axes.linewidth': 0.5,
+        'axes.spines.top': False,
+        'axes.spines.right': False,
+        'axes.axisbelow': True,
+        'axes.prop_cycle': mpl.cycler(color=OKABE_ITO),
+        'xtick.major.size': 3,
+        'xtick.minor.size': 2,
+        'xtick.major.width': 0.5,
+        'xtick.labelsize': 7,
+        'ytick.major.size': 3,
+        'ytick.minor.size': 2,
+        'ytick.major.width': 0.5,
+        'ytick.labelsize': 7,
+        'lines.linewidth': 1.5,
+        'lines.markersize': 4,
+        'legend.fontsize': 7,
+        'legend.frameon': False,
+        'figure.dpi': 100,
+        'savefig.dpi': 300,
+        'savefig.bbox': 'tight',
+        'savefig.pad_inches': 0.05,
+        'figure.constrained_layout.use': True,
+        'axes.unicode_minus': False,
+    })
+
+def save_fig(fig, name):
+    """Save as PDF (vector) and PNG (raster) in report/."""
+    os.makedirs('report', exist_ok=True)
+    for ext in ['pdf', 'png']:
+        path = os.path.join('report', f'{name}.{ext}')
+        fig.savefig(path, dpi=300)
+        print(f"  ✓ {path}")
+
+# ── Data ──────────────────────────────────────────────────────────────────
+def load_data():
+    fp = 'experiment_results.jsonl'
+    if not os.path.exists(fp):
+        print(f"ERROR: {fp} not found"); return None
+    data = [json.loads(l) for l in open(fp, 'r', encoding='utf-8')]
     return pd.DataFrame(data)
 
-def setup_plotting_style():
-    """配置绘图风格和中文字体。"""
-    sns.set_theme(style="whitegrid")
-    # 针对不同系统配置中文字体
-    plt.rcParams['font.sans-serif'] = ['SimHei', 'WenQuanYi Micro Hei', 'Droid Sans Fallback', 'DejaVu Sans'] 
-    plt.rcParams['axes.unicode_minus'] = False
 
-def plot_zscore_comparison(df, save_dir='report'):
-    """生成 Z-score 检测强度对比图（条形图展示均值与标准差）。"""
-    plt.figure(figsize=(10, 6))
-    z_data = df.melt(id_vars=['prompt', 'type'], 
-                     value_vars=['z_baseline', 'z_watermarked', 'z_paraphrased'],
-                     var_name='Condition', value_name='Z-score')
-
-    # 映射标签名
-    z_data['Condition'] = z_data['Condition'].map({
-        'z_baseline': '无水印 (Baseline)',
-        'z_watermarked': '带水印 (Watermarked)',
-        'z_paraphrased': '释义攻击后 (Attacked)'
+# ── Figure 1: Z-score comparison (bar plot) ──────────────────────────────
+def plot_zscore_comparison(df):
+    fig, ax = plt.subplots(figsize=(NATURE_SINGLE_INCH, 2.6))
+    z = df.melt(id_vars=['prompt', 'type'],
+                value_vars=['z_baseline', 'z_watermarked', 'z_paraphrased'],
+                var_name='Condition', value_name='Z-score')
+    z['Condition'] = z['Condition'].map({
+        'z_baseline': 'Baseline',
+        'z_watermarked': 'Watermarked',
+        'z_paraphrased': 'Paraphrased',
     })
+    order = ['Baseline', 'Watermarked', 'Paraphrased']
+    sns.barplot(data=z, x='Condition', y='Z-score',
+                order=order,
+                palette=[OKABE_ITO[0], OKABE_ITO[2], OKABE_ITO[5]],
+                errorbar='sd', capsize=0.15, errwidth=1, ax=ax)
+    # Individual points
+    for i, cond in enumerate(order):
+        vals = z[z['Condition'] == cond]['Z-score']
+        jitter = np.random.default_rng(42).uniform(-0.15, 0.15, len(vals))
+        ax.scatter(np.full_like(vals, i) + jitter, vals,
+                   color='black', alpha=0.3, s=8, linewidth=0, zorder=3)
+    ax.axhline(y=4.0, color=OKABE_ITO[5], linestyle='--', linewidth=0.8,
+               label=r'Threshold $\tau=4.0$')
+    ax.set_ylabel('Detection Z-score')
+    ax.set_xlabel('')
+    ax.legend(fontsize=6.5)
+    save_fig(fig, 'zscore_comparison')
+    plt.close(fig)
 
-    sns.barplot(data=z_data, x='Condition', y='Z-score', hue='Condition', palette='viridis', errorbar='sd')
-    plt.axhline(y=4.0, color='r', linestyle='--', label='判定阈值 (Z=4.0)')
-    plt.title('水印检测强度 (Z-score) 在不同攻击条件下的表现', fontsize=14)
-    plt.ylabel('平均 Z-score')
-    plt.legend()
-    plt.tight_layout()
-    
-    path = os.path.join(save_dir, 'zscore_comparison.png')
-    plt.savefig(path, dpi=300)
-    print(f"已保存: {path}")
 
-def plot_ppl_impact(df, save_dir='report'):
-    """生成困惑度 (PPL) 影响对比图（箱线图展示质量损失）。"""
-    plt.figure(figsize=(10, 6))
-    ppl_data = df.melt(id_vars=['prompt', 'type'], 
-                       value_vars=['ppl_baseline', 'ppl_watermarked'],
-                       var_name='Condition', value_name='Perplexity')
-
-    ppl_data['Condition'] = ppl_data['Condition'].map({
-        'ppl_baseline': '原始文本 (Baseline)',
-        'ppl_watermarked': '带水印文本 (Watermarked)'
+# ── Figure 2: PPL impact (box plot) ──────────────────────────────────────
+def plot_ppl_impact(df):
+    fig, ax = plt.subplots(figsize=(NATURE_SINGLE_INCH, 2.6))
+    p = df.melt(id_vars=['prompt', 'type'],
+                value_vars=['ppl_baseline', 'ppl_watermarked'],
+                var_name='Condition', value_name='Perplexity')
+    p['Condition'] = p['Condition'].map({
+        'ppl_baseline': 'Baseline',
+        'ppl_watermarked': 'Watermarked',
     })
+    order = ['Baseline', 'Watermarked']
+    sns.boxplot(data=p, x='Condition', y='Perplexity', order=order,
+                palette=[OKABE_ITO[0], OKABE_ITO[2]],
+                width=0.5, linewidth=0.8, fliersize=2, ax=ax)
+    # Strip points
+    sns.stripplot(data=p, x='Condition', y='Perplexity', order=order,
+                  color='black', alpha=0.25, size=3, jitter=0.12, ax=ax)
+    ax.set_ylabel('Perplexity (↓ natural)')
+    ax.set_xlabel('')
+    save_fig(fig, 'ppl_impact')
+    plt.close(fig)
 
-    sns.boxplot(data=ppl_data, x='Condition', y='Perplexity', palette='Set2')
-    plt.title('水印植入对文本自然度 (PPL) 的影响评估', fontsize=14)
-    plt.ylabel('困惑度 (PPL, 越低越自然)')
-    plt.tight_layout()
-    
-    path = os.path.join(save_dir, 'ppl_impact.png')
-    plt.savefig(path, dpi=300)
-    print(f"已保存: {path}")
 
-def plot_ppl_zscore_tradeoff(df, save_dir='report'):
-    """生成 PPL vs Z-score 散点图，展示自然度-检测强度的权衡关系。"""
-    plt.figure(figsize=(10, 6))
+# ── Figure 3: Entropy-stratified reliability (strip plot) ────────────────
+def plot_entropy_reliability(df):
+    fig, ax = plt.subplots(figsize=(NATURE_SINGLE_INCH, 2.6))
+    types = df['type'].unique()
+    palette = [OKABE_ITO[2], OKABE_ITO[5]]
+    # Beeswarm-style strip
+    for i, t in enumerate(sorted(types)):
+        vals = df[df['type'] == t]['z_watermarked']
+        jitter = np.random.default_rng(42 + i).uniform(-0.2, 0.2, len(vals))
+        ax.scatter(np.full_like(vals, i) + jitter, vals,
+                   c=[palette[i]], alpha=0.5, s=12, linewidth=0.4,
+                   edgecolor='white', zorder=3)
+        # Mean marker
+        mn = vals.mean()
+        ax.plot(i, mn, marker='D', color=palette[i], markersize=6,
+                markeredgecolor='white', markeredgewidth=0.5, zorder=4)
+    ax.axhline(y=4.0, color=OKABE_ITO[5], linestyle='--', linewidth=0.8,
+               label=r'Threshold $\tau=4.0$')
+    ax.set_xticks(range(len(types)))
+    ax.set_xticklabels(sorted(types))
+    ax.set_ylabel('Detection Z-score')
+    ax.set_xlabel('Prompt entropy regime')
+    ax.legend(fontsize=6.5)
+    save_fig(fig, 'entropy_comparison')
+    plt.close(fig)
 
-    # 分别绘制水印和释义攻击后的数据点
-    for label, x_col, y_col, marker, color in [
-        ('带水印 (Watermarked)', 'z_watermarked', 'ppl_watermarked', 'o', '#2196F3'),
-        ('释义攻击后 (Attacked)', 'z_paraphrased', 'ppl_watermarked', '^', '#FF9800'),
-    ]:
-        plt.scatter(df[x_col], df[y_col], c=color, marker=marker, s=80,
-                   label=label, edgecolors='white', linewidth=0.5, alpha=0.85)
 
-    plt.axvline(x=4.0, color='r', linestyle='--', alpha=0.6, label='检测阈值 (Z=4.0)')
-    plt.xlabel('检测强度 (Z-score)', fontsize=12)
-    plt.ylabel('困惑度 (PPL, 越低越自然)', fontsize=12)
-    plt.title('自然度-检测强度权衡 (PPL vs Z-score Trade-off)', fontsize=14)
-    plt.legend()
-    plt.tight_layout()
+# ── Figure 4: Z-score vs PPL trade-off (scatter) ─────────────────────────
+def plot_ppl_zscore_tradeoff(df):
+    fig, ax = plt.subplots(figsize=(NATURE_SINGLE_INCH, 2.6))
+    sets = [
+        ('Watermarked', 'z_watermarked', OKABE_ITO[2], 'o'),
+        ('Paraphrased', 'z_paraphrased', OKABE_ITO[5], 's'),
+    ]
+    for label, zcol, color, marker in sets:
+        ax.scatter(df[zcol], df['ppl_watermarked'],
+                   c=color, marker=marker, s=20, alpha=0.6,
+                   edgecolors='white', linewidth=0.3, label=label, zorder=3)
+    ax.axvline(x=4.0, color=OKABE_ITO[5], linestyle='--', linewidth=0.8,
+               alpha=0.7, label=r'Threshold $\tau=4.0$')
+    ax.set_xlabel('Detection Z-score')
+    ax.set_ylabel('Perplexity (↓ natural)')
+    ax.legend(fontsize=6.5)
+    save_fig(fig, 'ppl_zscore_tradeoff')
+    plt.close(fig)
 
-    path = os.path.join(save_dir, 'ppl_zscore_tradeoff.png')
-    plt.savefig(path, dpi=300)
-    print(f"已保存: {path}")
 
-def plot_entropy_reliability(df, save_dir='report'):
-    """生成高/低熵场景可靠性对比图（打点图展示个体差异）。"""
-    plt.figure(figsize=(10, 6))
-    sns.stripplot(data=df, x='type', y='z_watermarked', size=8, jitter=True, palette='coolwarm', hue='type')
-    plt.axhline(y=4.0, color='r', linestyle='--')
-    plt.title('水印可靠性分析：高熵场景 vs. 低熵场景', fontsize=14)
-    plt.ylabel('水印检测强度 (Z-score)')
-    plt.xlabel('Prompt 场景类型')
-    plt.tight_layout()
-    
-    path = os.path.join(save_dir, 'entropy_comparison.png')
-    plt.savefig(path, dpi=300)
-    print(f"已保存: {path}")
-
+# ── Main ──────────────────────────────────────────────────────────────────
 def main():
     df = load_data()
-    if df is not None:
-        if not os.path.exists('report'):
-            os.makedirs('report')
-        
-        setup_plotting_style()
-        plot_zscore_comparison(df)
-        plot_ppl_impact(df)
-        plot_entropy_reliability(df)
-        plot_ppl_zscore_tradeoff(df)
-        print("\n[Success] All visual reports generated in report/ directory.")
+    if df is None:
+        return
+    setup_style()
+    print("Generating publication-quality figures ...")
+    plot_zscore_comparison(df)
+    plot_ppl_impact(df)
+    plot_entropy_reliability(df)
+    plot_ppl_zscore_tradeoff(df)
+    print("Done — all figures saved to report/ as PDF + PNG.")
 
-if __name__ == "__main__":
+
+if __name__ == '__main__':
     main()
