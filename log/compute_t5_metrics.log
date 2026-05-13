@@ -1,26 +1,0 @@
->>> Loading data and model...
->>> Processing 10 samples...
-Loading judge model (PPL) from /data1/cyt/models/gpt2-large...
-Loading weights:   0%|          | 0/436 [00:00<?, ?it/s]Loading weights:  95%|█████████▌| 415/436 [00:00<00:00, 4144.25it/s]Loading weights: 100%|██████████| 436/436 [00:00<00:00, 4173.29it/s]
-[transformers] `loss_type=None` was set in the config but it is unrecognized. Using the default loss: `ForCausalLMLoss`.
-  [1/10] PPL(base/wm/t5)=17.48/18.91/24.96, retention=0.4309, bleu1=0.8372
-  [2/10] PPL(base/wm/t5)=9.72/12.09/24.60, retention=0.4845, bleu1=0.8780
-  [3/10] PPL(base/wm/t5)=10.32/9.12/16.44, retention=0.5904, bleu1=0.9859
-  [4/10] PPL(base/wm/t5)=17.56/11.96/24.59, retention=0.5125, bleu1=0.9457
-  [5/10] PPL(base/wm/t5)=16.02/21.91/27.27, retention=0.3790, bleu1=0.8310
-  [6/10] PPL(base/wm/t5)=15.52/23.91/43.90, retention=0.5259, bleu1=0.8876
-  [7/10] PPL(base/wm/t5)=10.80/12.64/27.79, retention=0.4909, bleu1=0.8384
-  [8/10] PPL(base/wm/t5)=14.42/18.62/18.97, retention=0.4242, bleu1=0.9153
-  [9/10] PPL(base/wm/t5)=15.31/14.06/35.68, retention=0.5182, bleu1=0.9101
-  [10/10] PPL(base/wm/t5)=6.83/17.40/41.29, retention=0.4636, bleu1=0.8415
-
-============================================================
-RESULTS (consistent CPU run):
-  Baseline PPL mean:    13.40
-  Watermarked PPL mean: 16.06
-  T5 Attacked PPL mean: 28.55
-  PPL increase (wm/b):  19.9%
-  PPL increase (t5/wm): 77.7%
-  Token retention mean: 0.4820 (48.20%)
-  BLEU-1 precision mean:0.8871 (88.71%)
-============================================================

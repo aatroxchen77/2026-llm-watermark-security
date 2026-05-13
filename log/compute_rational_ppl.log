@@ -1,22 +1,0 @@
->>> Loading data and models...
->>> Processing 10 samples at 10% replacement rate...
-Loading judge model (PPL) from /data1/cyt/models/gpt2-large...
-Loading weights:   0%|          | 0/436 [00:00<?, ?it/s]Loading weights:  91%|█████████ | 396/436 [00:00<00:00, 3959.62it/s]Loading weights: 100%|██████████| 436/436 [00:00<00:00, 3961.00it/s]
-[transformers] `loss_type=None` was set in the config but it is unrecognized. Using the default loss: `ForCausalLMLoss`.
-  [1/10] PPL(wm)=18.91, PPL(rational)=40.14, delta=+21.23
-  [2/10] PPL(wm)=12.09, PPL(rational)=20.76, delta=+8.67
-  [3/10] PPL(wm)=9.12, PPL(rational)=18.65, delta=+9.53
-  [4/10] PPL(wm)=11.96, PPL(rational)=18.93, delta=+6.97
-  [5/10] PPL(wm)=21.91, PPL(rational)=48.73, delta=+26.81
-  [6/10] PPL(wm)=23.91, PPL(rational)=40.56, delta=+16.65
-  [7/10] PPL(wm)=12.64, PPL(rational)=28.66, delta=+16.02
-  [8/10] PPL(wm)=18.62, PPL(rational)=24.90, delta=+6.27
-  [9/10] PPL(wm)=14.06, PPL(rational)=37.93, delta=+23.87
-  [10/10] PPL(wm)=17.40, PPL(rational)=43.83, delta=+26.44
-
-=======================================================
-RESULTS:
-  Watermarked PPL mean:        16.06
-  Rational Adv. (10%) PPL mean:32.31
-  PPL increase:                +16.25
-=======================================================
