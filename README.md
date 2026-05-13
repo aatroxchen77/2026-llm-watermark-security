@@ -68,9 +68,10 @@ conda env create -f environment.yml  # 或 pip install torch transformers scipy 
 │   ├── watermark_report.pdf     # 论文 PDF
 │   ├── references.bib           # 参考文献
 │   └── *.pdf / *.png            # 5 张出版级图表
-├── log/                         # 复现运行日志
-└── tests/                       # 单元测试
+└── log/                         # 复现运行日志
 ```
+
+**注意**：项目目录中原包含若干 fork 上游的参考脚本（如 `orchestrator.py`、`app.py`、`demo_watermark.py` 等），为保持仓库清爽已在最新提交中清除。完整历史可在 Git 记录中回溯。
 
 ---
 
