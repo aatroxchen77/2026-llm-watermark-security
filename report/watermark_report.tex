@@ -38,7 +38,7 @@ Kirchenbauer 等人提出的红绿名单 Logit 偏置水印方案是大模型内
 本文将自身定位为一次诚实的复现与统计检验，不提出新算法，也不试图建立理论框架。我们关心一个朴素的问题：该方案高度依赖统计假设——token 归属的独立性、水印分布与自然分布在经验上的不可区分——这些假设在多大程度上经得起推敲？我们在原始代码基础上追加了四项分析（自相关检验、TVD/KL 分布距离、高偏置 token 检出和定向替换实验），用同一套数据逐个审视这些假设，检查已有结论在什么范围内仍然稳健，同时记录实验过程中值得关注的现象。
 
 \section{相关工作}
-大模型文本检测技术大致分为被动检测和主动水印两类。被动检测不修改生成过程，而是对输出文本的统计特征做后验溯源。Mitchell 等人提出的 DetectGPT~\cite{mitchell2023detectgpt} 利用模型 logits 在生成文本附近的局部曲率异常实现零样本检测，但计算开销较大，对释义重写也较为脆弱。主动水印则在生成阶段嵌入可控信号。Kirchenbauer 等人~\cite{kirchenbauer2023watermark,kirchenbauer2023reliability} 的红绿名单方案使用 $\gamma=0.25$、$\delta=2.0$ 的参数组合，已被多项后续工作复现。Wu 等人~\cite{wu2023unbiased} 提出了无偏变体来抑制质量损失；Zhao 等人~\cite{zhao2024gamma} 系统考察了绿名单比例对检测性能的影响。
+大模型文本检测技术大致分为被动检测和主动水印两类。被动检测不修改生成过程，而是对输出文本的统计特征做后验溯源。Mitchell 等人提出的 DetectGPT~\cite{mitchell2023detectgpt} 利用模型 logits 在生成文本附近的局部曲率异常实现零样本检测，但计算开销较大，对释义重写也较为脆弱。主动水印则在生成阶段嵌入可控信号。Kirchenbauer 等人~\cite{kirchenbauer2023watermark,kirchenbauer2023reliability} 的红绿名单方案使用 $\gamma=0.25$、$\delta=2.0$ 的参数组合，已被多项后续工作复现。Hu 等人~\cite{hu2023unbiased} 提出了无偏变体来抑制质量损失。
 
 在安全分析层面，Aaronson~\cite{aaronson2023watermark} 将水印检测形式化为假设检验问题，Christ 等人~\cite{christ2023undetectable} 从计算复杂性角度给出了不存在多项式时间攻击者能完全抹除水印信号的理论边界。在统计泄漏的量化工具方面，Fernandez 等人~\cite{fernandez2023stable} 在扩散模型水印中引入了全变差距离。本文将 TVD 分析平移到自回归语言模型场景，作为检验 Kirchenbauer 方案分布特性的经验工具之一。
 
